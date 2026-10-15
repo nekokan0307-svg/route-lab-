@@ -62,3 +62,15 @@ Screen Wake Lock is requested on Start, released on Stop/page exit, and requeste
 Upload every file, including the new `route.js`. Local CSS/JS references have a version query to refresh cached assets. No build step is required.
 
 Route sampling, quality rejection, colour bins, distance accumulation, segment breaks, reset, and wake-lock lifecycle passed simulated checks. Physical-phone accuracy and browser layout have not been verified.
+
+## Step Mode and Time Mode (version 4)
+
+Select **Step Mode** for a GPS sample every 5 counted steps; farther dots are darker. Select **Time Mode** for a GPS sample every chosen number of seconds (default 5; whole numbers 1–300); closer dots are darker. The legend updates to the selected mode. Step counting, GPS filtering, distance totals, map following and screen wake lock work in both modes. Time Mode can record even when motion permission is denied.
+
+The first Time Mode sample is after one full interval. Changing the interval restarts its countdown. An invalid or empty interval pauses time sampling until corrected. Switching modes starts a new route segment, keeping previous dots and totals; each dot's popup identifies its mode. Earlier dots retain their original colour meaning. The first dot of a new segment is white and adds no distance.
+
+Time sampling pauses when stopped or hidden. Returning to the page starts a fresh countdown and segment. Browser timers are approximate; delayed intervals do not create catch-up dots. Quality checks still apply on each attempt: GPS accuracy ≤20 m, fix age ≤10 seconds, and a newer GPS timestamp than the last accepted dot. Skipped attempts are not backfilled. Reset all clears the route and steps and restarts the countdown.
+
+Deploy the whole package, including `route.js`, and refresh the page. Versioned relative CSS/JS URLs request the latest assets without a build step.
+
+Version 4 simulated checks passed for timer intervals, interval edits and invalid input, mode switching, reversed time colour bins, GPS quality filtering, and the existing motion/wake-lock lifecycle. Physical phone testing is still required.

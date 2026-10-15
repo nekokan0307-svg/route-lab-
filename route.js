@@ -13,8 +13,8 @@
     constructor() { this.reset(); }
     reset() { this.total = 0; this.points = 0; this.skipped = 0; this.breakSegment(); }
     breakSegment() { this.previous = null; this.lastTimestamp = null; }
-    sample(step, fix, now) {
-      if (step % 5 !== 0) return null;
+    sample(step, fix, now, mode = 'step') {
+      if (mode === 'step' && step % 5 !== 0) return null;
       let reason = '';
       if (!fix) reason = 'No GPS fix yet';
       else if (![fix.lat, fix.lng, fix.accuracy, fix.timestamp].every(Number.isFinite) || Math.abs(fix.lat) > 90 || Math.abs(fix.lng) > 180 || fix.accuracy < 0) reason = 'Invalid GPS fix';
@@ -24,9 +24,9 @@
       if (reason) { this.skipped++; return {accepted:false, reason}; }
       const previous = this.previous;
       const moved = previous ? distance(previous, fix) : 0;
-      const point = {...fix, step};
+      const point = {...fix, step, mode};
       this.total += moved; this.points++; this.previous = point; this.lastTimestamp = fix.timestamp;
-      return {accepted:true, point, previous, moved, color:previous ? colorFor(moved) : '#ffffff'};
+      return {accepted:true, point, previous, moved, color:previous ? (mode === 'time' ? colors[4 - colors.indexOf(colorFor(moved))] : colorFor(moved)) : '#ffffff'};
     }
   }
   window.RouteRecorder = RouteRecorder;

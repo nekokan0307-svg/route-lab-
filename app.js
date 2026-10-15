@@ -32,19 +32,53 @@
   const recorder = new window.RouteRecorder();
   const routeLayers = L.layerGroup().addTo(map);
   let currentFix = null, wakeLock = null, wakePending = false;
+  let recordingMode = 'step', intervalSeconds = 5, nextTimeDot = null, intervalValid = true;
+  const palette = ['#ccece6', '#8bcbbb', '#459f89', '#216b59', '#103b32'];
+  function resetTimeSchedule() { nextTimeDot = intervalValid ? performance.now() + intervalSeconds * 1000 : null; }
+  function updateModeUI() {
+    el('interval-control').hidden = recordingMode !== 'time';
+    el('route-summary').textContent = recordingMode === 'step' ? 'Step Mode · dot every 5 steps' : `Time Mode · dot every ${intervalSeconds} seconds`;
+    el('legend-note').textContent = (recordingMode === 'step' ? 'Farther = darker' : 'Closer = darker') + ' · White dot starts a recording segment';
+    const colors = recordingMode === 'time' ? [...palette].reverse() : palette;
+    const labels = ['0–2 m', '2–5 m', '5–10 m', '10–20 m', '20+ m'];
+    el('route-legend').innerHTML = labels.map((label, i) => `<span><i style="background:${colors[i]}"></i>${label}</span>`).join('');
+    el('route-legend').setAttribute('aria-label', `Distance from previous dot; ${recordingMode === 'time' ? 'closer' : 'farther'} is darker`);
+  }
+  function changeMode(mode) {
+    recordingMode = mode; recorder.breakSegment(); resetTimeSchedule(); updateModeUI();
+    el('route-status').textContent = 'New segment · ' + (mode === 'time' ? `Next dot in ${intervalSeconds} seconds while recording` : 'Next dot at the next multiple of 5 steps');
+  }
+  el('mode-step').addEventListener('change', () => { if (el('mode-step').checked) changeMode('step'); });
+  el('mode-time').addEventListener('change', () => { if (el('mode-time').checked) changeMode('time'); });
+  el('time-seconds').addEventListener('input', () => {
+    const value = Number(el('time-seconds').value);
+    const valid = Number.isInteger(value) && value >= 1 && value <= 300;
+    intervalValid = valid;
+    el('time-seconds').setCustomValidity(valid ? '' : 'Enter a whole number from 1 to 300.');
+    if (!valid) { nextTimeDot = null; el('interval-note').textContent = 'Time sampling paused: enter 1–300 whole seconds.'; return; }
+    intervalSeconds = value; resetTimeSchedule(); updateModeUI();
+    el('interval-note').textContent = 'Choose 1–300 whole seconds. Timer restarts when changed.';
+  });
+  setInterval(() => {
+    if (!active || document.hidden || recordingMode !== 'time' || nextTimeDot === null) return;
+    if (performance.now() >= nextTimeDot) {
+      resetTimeSchedule(); // No catch-up burst after browser timer throttling.
+      drawRouteDot();
+    }
+  }, 250);
   function drawRouteDot() {
-    const result = recorder.sample(stepCount, currentFix, Date.now());
+    const result = recorder.sample(stepCount, currentFix, Date.now(), recordingMode);
     if (!result) return;
     if (!result.accepted) {
-      el('route-status').textContent = `Step ${stepCount}: skipped · ${result.reason} · ${recorder.skipped} skipped`;
+      el('route-status').textContent = `${recordingMode === 'step' ? 'Step ' + stepCount : 'Time sample'}: skipped · ${result.reason} · ${recorder.skipped} skipped`;
       return;
     }
     const p = result.point, ll = [p.lat, p.lng];
     if (result.previous) L.polyline([[result.previous.lat, result.previous.lng], ll], {color:'#287359', weight:3, opacity:0.8}).addTo(routeLayers);
     L.circleMarker(ll, {radius:6, color:'#173d33', weight:1.5, fillColor:result.color, fillOpacity:1})
-      .bindPopup(`Step ${p.step} · ${result.previous ? result.moved.toFixed(1) + ' m from previous dot' : 'Segment start'} · GPS ±${p.accuracy.toFixed(1)} m`).addTo(routeLayers);
+      .bindPopup(`${p.mode === 'time' ? 'Time Mode' : 'Step Mode'} · ${new Date(p.timestamp).toLocaleTimeString()} · Step ${p.step} · ${result.previous ? result.moved.toFixed(1) + ' m from previous dot' : 'Segment start'} · GPS ±${p.accuracy.toFixed(1)} m`).addTo(routeLayers);
     el('distance').textContent = recorder.total.toFixed(1) + ' m';
-    el('route-status').textContent = `${recorder.points} dots · ${recorder.skipped} skipped · Last dot at step ${stepCount}`;
+    el('route-status').textContent = `${recorder.points} dots · ${recorder.skipped} skipped · ${recordingMode === 'step' ? 'Last dot at step ' + stepCount : 'Last dot at ' + new Date().toLocaleTimeString()}`;
   }
   function releaseWakeLock() {
     const held = wakeLock; wakeLock = null;
@@ -100,7 +134,7 @@
     if (detector.sample(vector, now)) {
       stepCount++;
       el('steps').textContent = stepCount.toLocaleString();
-      drawRouteDot();
+      if (recordingMode === 'step') drawRouteDot();
     }
   }
   function beginMotion(token) {
@@ -131,7 +165,8 @@
   el('reset-steps').addEventListener('click', () => {
     stepCount = 0; el('steps').textContent = '0'; detector.reset();
     recorder.reset(); routeLayers.clearLayers(); el('distance').textContent = '0.0 m';
-    el('route-status').textContent = 'Route reset · A new dot will be sampled at step 5';
+    resetTimeSchedule();
+    el('route-status').textContent = 'Route reset · Waiting for the next ' + (recordingMode === 'step' ? '5-step milestone' : 'time interval');
   });
   const icon = L.divIcon({className:'gps-pin', html:'<span></span>', iconSize:[20,20], iconAnchor:[10,10]});
   function buttons() {
@@ -141,7 +176,7 @@
     el('mode').textContent = active ? (following ? 'FOLLOWING' : 'EXPLORING') : 'GPS OFF';
   }
   function halt() {
-    active = false;
+    active = false; nextTimeDot = null;
     session++;
     stopMotion();
     releaseWakeLock(); el('retry-wake').hidden = true;
@@ -183,7 +218,7 @@
     active = true; following = true; firstFix = true; lastTime = 0;
     const token = ++session;
     buttons();
-    currentFix = null; recorder.breakSegment();
+    currentFix = null; recorder.breakSegment(); resetTimeSchedule();
     beginMotion(token);
     requestWakeLock();
     status('Finding your location…', 'Allow location access when asked. For a better fix, move near a window or outdoors.');
@@ -228,7 +263,7 @@
   }, 5000);
   document.addEventListener('visibilitychange', () => {
     detector.reset();
-    if (!document.hidden) { map.invalidateSize(); requestWakeLock(); }
+    if (!document.hidden) { map.invalidateSize(); requestWakeLock(); resetTimeSchedule(); }
     else { releaseWakeLock(); currentFix = null; recorder.breakSegment(); }
     if (motionEnabled) motionStatus(document.hidden ? 'Motion paused while app is hidden' : 'Motion resumed · Walk with your phone · Estimated steps');
   });

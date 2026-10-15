@@ -7,11 +7,11 @@
 <meta name="description" content="Route Lab — a simple live GPS map.">
 <title>Route Lab</title>
 <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
-<link rel="stylesheet" href="./styles.css?v=route3">
+<link rel="stylesheet" href="./styles.css?v=route4">
 <script defer src="./vendor/leaflet/leaflet.js"></script>
-<script defer src="./steps.js?v=route3"></script>
-<script defer src="./route.js?v=route3"></script>
-<script defer src="./app.js?v=route3"></script>
+<script defer src="./steps.js?v=route4"></script>
+<script defer src="./route.js?v=route4"></script>
+<script defer src="./app.js?v=route4"></script>
 </head>
 <body>
 <main id="map" aria-label="Interactive OpenStreetMap map"></main>
@@ -20,9 +20,10 @@
 <section class="panel" aria-label="GPS and step tracking controls">
 <div class="state"><span id="dot" class="dot"></span><strong id="status" role="status" aria-live="polite">Ready to explore</strong><span id="mode">GPS OFF</span></div>
 <p id="message">Tap Start, then allow location access to find yourself on the map.</p>
+<fieldset class="mode-controls"><legend>Recording mode</legend><label><input type="radio" name="record-mode" id="mode-step" value="step" checked> Step Mode</label><label><input type="radio" name="record-mode" id="mode-time" value="time"> Time Mode</label><div id="interval-control" hidden><label for="time-seconds">Drop a dot every</label> <input id="time-seconds" type="number" inputmode="numeric" min="1" max="300" step="1" value="5" aria-describedby="interval-note"> seconds<p id="interval-note">Choose 1–300 whole seconds.</p></div></fieldset>
 <div class="step-card"><div><span class="step-label">TOTAL STEPS</span><output id="steps" aria-label="Estimated step count">0</output></div><div class="distance-card"><span class="step-label">ROUTE DISTANCE</span><output id="distance">0.0 <small>m</small></output></div><button id="reset-steps" class="reset-steps" aria-label="Reset steps and route">Reset all</button></div>
 <p id="motion-status" class="motion-status" role="status">Tap Start to enable motion · Estimated steps</p>
-<details class="route-details" open><summary>Route · dot every 5 steps</summary><p id="route-status" role="status">0 dots · GPS accuracy ≤20 m · Fix age ≤10 s</p><div class="legend" aria-label="Dot colour by distance since previous dot"><span><i style="background:#ccece6"></i>0–2 m</span><span><i style="background:#8bcbbb"></i>2–5 m</span><span><i style="background:#459f89"></i>5–10 m</span><span><i style="background:#216b59"></i>10–20 m</span><span><i style="background:#103b32"></i>20+ m</span></div><p class="legend-note">Farther = darker · White dot starts a recording segment</p></details>
+<details class="route-details" open><summary id="route-summary">Step Mode · dot every 5 steps</summary><p id="route-status" role="status">0 dots · GPS accuracy ≤20 m · Fix age ≤10 s</p><div id="route-legend" class="legend" aria-label="Dot colour by distance since previous dot"><span><i style="background:#ccece6"></i>0–2 m</span><span><i style="background:#8bcbbb"></i>2–5 m</span><span><i style="background:#459f89"></i>5–10 m</span><span><i style="background:#216b59"></i>10–20 m</span><span><i style="background:#103b32"></i>20+ m</span></div><p id="legend-note" class="legend-note">Farther = darker · White dot starts a recording segment</p><p class="legend-note">Legend applies to the selected mode. Earlier dots keep their colours; tap a dot to see its mode.</p></details>
 <button id="retry-wake" class="reset-steps" hidden>Retry screen wake lock</button>
 <p id="wake-status" class="motion-status" role="status">Screen wake lock starts with recording</p>
 <dl class="metrics"><div><dt>LATITUDE</dt><dd id="latitude">—</dd></div><div><dt>LONGITUDE</dt><dd id="longitude">—</dd></div><div><dt>ACCURACY</dt><dd><span id="accuracy">—</span> <small>m</small></dd></div></dl>
