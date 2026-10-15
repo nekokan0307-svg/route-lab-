@@ -31,6 +31,27 @@
   const detector = new window.StepDetector();
   const recorder = new window.RouteRecorder();
   const routeLayers = L.layerGroup().addTo(map);
+  const heatLayer = window.createRouteHeatmap();
+  let mapView = 'dots';
+  function updateHeatStatus() {
+    el('heat-status').textContent = recorder.points ? `${recorder.points} accepted dots · Overlap glows brighter · Density changes with zoom` : 'No accepted dots yet. Start recording to build the heatmap.';
+  }
+  function changeView(view) {
+    mapView = view;
+    map.closePopup();
+    if (view === 'heat') {
+      if (map.hasLayer(routeLayers)) map.removeLayer(routeLayers);
+      if (!map.hasLayer(heatLayer)) heatLayer.addTo(map);
+    } else {
+      if (map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+      if (!map.hasLayer(routeLayers)) routeLayers.addTo(map);
+    }
+    el('heat-legend').hidden = view !== 'heat';
+    el('dot-legend-wrap').hidden = view === 'heat';
+    updateHeatStatus();
+  }
+  el('view-dots').addEventListener('change', () => { if (el('view-dots').checked) changeView('dots'); });
+  el('view-heat').addEventListener('change', () => { if (el('view-heat').checked) changeView('heat'); });
   let currentFix = null, wakeLock = null, wakePending = false;
   let recordingMode = 'step', intervalSeconds = 5, nextTimeDot = null, intervalValid = true;
   const palette = ['#ccece6', '#8bcbbb', '#459f89', '#216b59', '#103b32'];
@@ -74,6 +95,7 @@
       return;
     }
     const p = result.point, ll = [p.lat, p.lng];
+    heatLayer.addPoint(ll); updateHeatStatus();
     if (result.previous) L.polyline([[result.previous.lat, result.previous.lng], ll], {color:'#287359', weight:3, opacity:0.8}).addTo(routeLayers);
     L.circleMarker(ll, {radius:6, color:'#173d33', weight:1.5, fillColor:result.color, fillOpacity:1})
       .bindPopup(`${p.mode === 'time' ? 'Time Mode' : 'Step Mode'} · ${new Date(p.timestamp).toLocaleTimeString()} · Step ${p.step} · ${result.previous ? result.moved.toFixed(1) + ' m from previous dot' : 'Segment start'} · GPS ±${p.accuracy.toFixed(1)} m`).addTo(routeLayers);
@@ -164,7 +186,7 @@
   }
   el('reset-steps').addEventListener('click', () => {
     stepCount = 0; el('steps').textContent = '0'; detector.reset();
-    recorder.reset(); routeLayers.clearLayers(); el('distance').textContent = '0.0 m';
+    recorder.reset(); routeLayers.clearLayers(); heatLayer.clear(); updateHeatStatus(); el('distance').textContent = '0.0 m';
     resetTimeSchedule();
     el('route-status').textContent = 'Route reset · Waiting for the next ' + (recordingMode === 'step' ? '5-step milestone' : 'time interval');
   });

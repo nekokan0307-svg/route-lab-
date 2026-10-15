@@ -74,3 +74,18 @@ Time sampling pauses when stopped or hidden. Returning to the page starts a fres
 Deploy the whole package, including `route.js`, and refresh the page. Versioned relative CSS/JS URLs request the latest assets without a build step.
 
 Version 4 simulated checks passed for timer intervals, interval edits and invalid input, mode switching, reversed time colour bins, GPS quality filtering, and the existing motion/wake-lock lifecycle. Physical phone testing is still required.
+
+## Dots and Heatmap (version 5)
+
+Use the **Map view** switch at the top of the control panel:
+
+- **Dots** shows the original route dots, connections and mode-dependent distance legend. Tap dots for details.
+- **Heatmap** hides the route dots/lines and displays a canvas glow from all accepted recorded dots, across both recording modes and segments. Each dot has equal weight; nearby dots overlap and become brighter, progressing from blue/teal to yellow/cream. The heat legend describes density rather than movement distance. The live GPS marker and accuracy circle remain available.
+
+The heat overlay updates during recording and redraws after map movement, zooming and resizing. A dot contributes over a 28-screen-pixel radius, so apparent density changes with map zoom. It is a visual density estimate, not an area-normalized scientific heatmap. Its brightness uses a fixed saturating scale: adding overlapping dots increases brightness without dimming other areas.
+
+Switching the map view does not change the recording mode, timer, step count, accepted-dot history, route segments, distance total or wake lock. Data continues accumulating in both views. Stop retains both views; Reset all clears both. GPS fixes rejected by the existing filters do not contribute to heat. An empty-state message appears before any dots are accepted.
+
+The heatmap renderer is included locally in `heatmap.js`; no plugin download, API key, build step or extra remote dependency is required. Upload **all files**, including `heatmap.js`, then refresh the page.
+
+Version 5 simulated checks passed for view switching, ongoing recording and data preservation, reset, empty/offscreen heat, brighter overlapping dots, layer reattachment and redraw, and existing Step/Time/GPS/wake-lock behavior. Real-device display and sensor testing remain unverified.
