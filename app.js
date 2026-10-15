@@ -29,6 +29,58 @@
   let marker, accuracyCircle, lastPosition, lastTime = 0, firstFix = true;
   let stepCount = 0, motionEnabled = false, motionTimer = null, lastMotionTime = 0;
   const detector = new window.StepDetector();
+  const recorder = new window.RouteRecorder();
+  const routeLayers = L.layerGroup().addTo(map);
+  let currentFix = null, wakeLock = null, wakePending = false;
+  function drawRouteDot() {
+    const result = recorder.sample(stepCount, currentFix, Date.now());
+    if (!result) return;
+    if (!result.accepted) {
+      el('route-status').textContent = `Step ${stepCount}: skipped · ${result.reason} · ${recorder.skipped} skipped`;
+      return;
+    }
+    const p = result.point, ll = [p.lat, p.lng];
+    if (result.previous) L.polyline([[result.previous.lat, result.previous.lng], ll], {color:'#287359', weight:3, opacity:0.8}).addTo(routeLayers);
+    L.circleMarker(ll, {radius:6, color:'#173d33', weight:1.5, fillColor:result.color, fillOpacity:1})
+      .bindPopup(`Step ${p.step} · ${result.previous ? result.moved.toFixed(1) + ' m from previous dot' : 'Segment start'} · GPS ±${p.accuracy.toFixed(1)} m`).addTo(routeLayers);
+    el('distance').textContent = recorder.total.toFixed(1) + ' m';
+    el('route-status').textContent = `${recorder.points} dots · ${recorder.skipped} skipped · Last dot at step ${stepCount}`;
+  }
+  function releaseWakeLock() {
+    const held = wakeLock; wakeLock = null;
+    if (held) held.release().catch(() => {});
+    el('wake-status').textContent = active ? 'Screen wake lock paused' : 'Screen wake lock off';
+  }
+  async function requestWakeLock() {
+    if (!active || document.hidden || wakePending || (wakeLock && !wakeLock.released)) return;
+    if (!navigator.wakeLock) {
+      el('wake-status').textContent = 'Keep screen on manually · Wake lock unsupported'; return;
+    }
+    const token = session;
+    wakePending = true;
+    try {
+      const held = await navigator.wakeLock.request('screen');
+      if (!active || token !== session || document.hidden) { await held.release(); return; }
+      wakeLock = held;
+      el('wake-status').textContent = 'Screen stays awake while recording';
+      held.addEventListener('release', () => {
+        if (wakeLock !== held) return;
+        wakeLock = null;
+        el('wake-status').textContent = active ? 'Screen wake lock released · Tap Retry to keep awake' : 'Screen wake lock off';
+        el('retry-wake').hidden = !active;
+      });
+      el('retry-wake').hidden = true;
+    } catch (error) {
+      if (active && token === session) {
+        el('wake-status').textContent = 'Could not keep screen awake · Tap Retry or keep screen on manually';
+        el('retry-wake').hidden = false;
+      }
+    } finally {
+      wakePending = false;
+      if (active && token !== session && !document.hidden) requestWakeLock();
+    }
+  }
+  el('retry-wake').addEventListener('click', requestWakeLock);
   const motionStatus = text => { el('motion-status').textContent = text; };
   function stopMotion() {
     window.removeEventListener('devicemotion', onMotion);
@@ -48,6 +100,7 @@
     if (detector.sample(vector, now)) {
       stepCount++;
       el('steps').textContent = stepCount.toLocaleString();
+      drawRouteDot();
     }
   }
   function beginMotion(token) {
@@ -77,6 +130,8 @@
   }
   el('reset-steps').addEventListener('click', () => {
     stepCount = 0; el('steps').textContent = '0'; detector.reset();
+    recorder.reset(); routeLayers.clearLayers(); el('distance').textContent = '0.0 m';
+    el('route-status').textContent = 'Route reset · A new dot will be sampled at step 5';
   });
   const icon = L.divIcon({className:'gps-pin', html:'<span></span>', iconSize:[20,20], iconAnchor:[10,10]});
   function buttons() {
@@ -89,6 +144,8 @@
     active = false;
     session++;
     stopMotion();
+    releaseWakeLock(); el('retry-wake').hidden = true;
+    currentFix = null; recorder.breakSegment();
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     watchId = null;
     buttons();
@@ -98,6 +155,7 @@
     if (![latitude, longitude, accuracy].every(Number.isFinite) || accuracy < 0 || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return;
     lastPosition = [latitude, longitude];
     lastTime = position.timestamp || Date.now();
+    currentFix = {lat:latitude, lng:longitude, accuracy, timestamp:position.timestamp};
     el('latitude').textContent = latitude.toFixed(6);
     el('longitude').textContent = longitude.toFixed(6);
     el('accuracy').textContent = accuracy.toFixed(1);
@@ -125,7 +183,9 @@
     active = true; following = true; firstFix = true; lastTime = 0;
     const token = ++session;
     buttons();
+    currentFix = null; recorder.breakSegment();
     beginMotion(token);
+    requestWakeLock();
     status('Finding your location…', 'Allow location access when asked. For a better fix, move near a window or outdoors.');
     try {
       watchId = navigator.geolocation.watchPosition(
@@ -168,7 +228,8 @@
   }, 5000);
   document.addEventListener('visibilitychange', () => {
     detector.reset();
-    if (!document.hidden) map.invalidateSize();
+    if (!document.hidden) { map.invalidateSize(); requestWakeLock(); }
+    else { releaseWakeLock(); currentFix = null; recorder.breakSegment(); }
     if (motionEnabled) motionStatus(document.hidden ? 'Motion paused while app is hidden' : 'Motion resumed · Walk with your phone · Estimated steps');
   });
   window.addEventListener('resize', () => map.invalidateSize());

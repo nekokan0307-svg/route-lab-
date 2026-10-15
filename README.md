@@ -46,3 +46,19 @@ Leaflet 1.9.4 is bundled in `vendor/leaflet` under its BSD-2-Clause license. Map
 ## Validation of this update
 
 JavaScript syntax and simulated GPS/motion tests passed: permission invocation on Start, Android no-prompt path, denied-motion GPS continuity, walking cycles versus stationary noise, Stop/Reset, and delayed permission after Stop. Physical sensor accuracy and layout still require real-device verification.
+
+## Route recording (version 3)
+
+Every fifth detected step (5, 10, 15, …), Route Lab samples the latest GPS fix. Only fixes with reported accuracy ≤20 metres, age ≤10 seconds, valid coordinates, and a timestamp newer than the previous accepted dot are used. A skipped milestone is not backfilled; the next attempt is five steps later. Steps continue counting regardless of GPS quality. The live location marker still shows all valid fixes; quality filtering applies to route dots and distance.
+
+Accepted dots are linked by straight lines. Distance is the sum of those lines using great-circle distances, in metres; it is not GPS distance on every update or steps multiplied by stride length. GPS drift can inflate distance and gaps or turns between dots can underestimate it. A 20 m accuracy cutoff does not make short walking distances precise.
+
+Dot colour means distance from the previous accepted dot: pale teal 0–<2 m, then 2–<5 m, 5–<10 m, 10–<20 m, and darkest green ≥20 m. The first dot in each segment is white and adds no distance. Tap a dot for step number, distance and GPS accuracy.
+
+Stop keeps totals and dots. Start resumes the total step counter, with a new route segment so movement while stopped is excluded. Hiding the page also breaks the segment and clears the old GPS fix, avoiding a distance jump when returning. Reset all clears steps, dots, distance and skipped-fix counts. Reload clears all session data.
+
+Screen Wake Lock is requested on Start, released on Stop/page exit, and requested again when returning to the visible page. A status reports success, lack of browser support or a system refusal; Retry is offered on refusal or release. Keep the page visible; wake lock does not enable background or locked-screen recording and can be revoked by the device (for example in low-power mode). Use a recent Safari/Chrome browser over HTTPS.
+
+Upload every file, including the new `route.js`. Local CSS/JS references have a version query to refresh cached assets. No build step is required.
+
+Route sampling, quality rejection, colour bins, distance accumulation, segment breaks, reset, and wake-lock lifecycle passed simulated checks. Physical-phone accuracy and browser layout have not been verified.
