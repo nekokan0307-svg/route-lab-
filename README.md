@@ -1,6 +1,6 @@
 # Route Lab
 
-A mobile-first live GPS map using Leaflet 1.9.4 and OpenStreetMap. Plain HTML/CSS/JS, with no build step, API key, backend, or account required.
+A mobile-first live GPS map with an accelerometer step counter using Leaflet 1.9.4 and OpenStreetMap. Plain HTML/CSS/JS, with no build step, API key, backend, or account required.
 
 ## Publish on GitHub Pages
 
@@ -13,17 +13,19 @@ Works at a repository subpath, such as `https://your-name.github.io/route-lab/`.
 
 ## Use
 
-- **Start** begins a high-accuracy `watchPosition` session only after a tap.
+- **Start** requests motion permission directly inside the tap handler on iPhone, and begins a high-accuracy `watchPosition` GPS session. Android browsers without `requestPermission` listen for accelerometer events without an extra prompt. GPS is not blocked by denied or unavailable motion access.
 - Your marker and the accuracy circle update on each GPS fix. Accuracy is the browser-reported estimate in metres, not a guarantee of precision. Latitude/longitude are decimal degrees.
 - The map follows new fixes automatically. Dragging pauses map following while GPS continues; tap **◎** to recenter and follow again.
-- **Stop** clears the GPS watch and retains the last fix, clearly labeled as stopped.
+- **Stop** clears the GPS watch and removes the accelerometer listener. It retains the last fix and step total. Start resumes counting; **Reset** clears the step count. Reloading resets the total to zero.
+- **Steps** are shown in large numbers and estimated from accelerometer magnitude using time-based smoothing, gravity/baseline removal, peak hysteresis, an 800 ms warm-up, and a 300 ms minimum step interval. Carry the phone consistently while walking. Shaking or other motion may count as steps, and gentle steps may be missed. This is not a native Health/Fitness step count.
+- A separate motion status reports denied access, unavailable sensors, or no data; GPS status remains independent.
 - Permission, timeout, unsupported browser, insecure context, and tile-loading errors have visible guidance.
 
 ## iPhone and Android
 
-Use Safari on iPhone or Chrome on Android; enable device Location Services and allow the site's location permission (and Precise Location where available). Open the HTTPS URL directly, rather than inside another app's embedded browser. No special iOS motion permission is needed. Keep the page visible and the screen awake: mobile browsers may suspend GPS in the background or while locked. Tracking stops when the page is left; tap Start on return.
+Use Safari on iPhone or Chrome on Android; enable device Location Services and allow the site's location permission (and Precise Location where available). Open the HTTPS URL directly, rather than inside another app's embedded browser. On iPhone, allow **Motion & Orientation** when Start requests it. If denied, check Safari/site motion settings and Stop / Start to retry. On Android, allow motion sensors in site settings if restricted. Keep the page visible and the screen awake: mobile browsers may suspend GPS in the background or while locked. Tracking stops when the page is left; tap Start on return.
 
-Map tiles require internet. The app does not save or upload coordinates. Your browser contacts OpenStreetMap for the map tiles around the viewed location; those requests reveal the viewed map area to the tile provider. No offline caching or tile prefetching is implemented. OpenStreetMap's standard tile service has usage limits; review https://operations.osmfoundation.org/policies/tiles/ before a large public rollout.
+Map tiles require internet. The app does not save or upload coordinates, step totals, or accelerometer data. Your browser contacts OpenStreetMap for the map tiles around the viewed location; those requests reveal the viewed map area to the tile provider. No offline caching or tile prefetching is implemented. OpenStreetMap's standard tile service has usage limits; review https://operations.osmfoundation.org/policies/tiles/ before a large public rollout.
 
 ## Manual verification on a real phone
 
@@ -32,10 +34,15 @@ Map tiles require internet. The app does not save or upload coordinates. Your br
 3. Walk outdoors; confirm new readings, marker movement, and following.
 4. Pan the map, then recenter. Stop and confirm no further updates.
 5. Deny permission and confirm the recovery message. Re-enable permission and retry.
-6. Rotate the phone; confirm controls and map remain usable. Background and resume; check the status and restart if needed.
+6. Allow motion permission, walk 20–30 steps with the phone, and compare the estimate. Stop and verify the count freezes; Start and walk again. Reset the total. Deny motion and confirm GPS remains active.
+7. Rotate the phone; confirm controls and map remain usable. Background and resume; check the status and restart if needed.
 
 GPS hardware and permission behavior need real-device testing. This package has not been tested on physical iPhone/Android hardware.
 
 ## Dependencies
 
 Leaflet 1.9.4 is bundled in `vendor/leaflet` under its BSD-2-Clause license. Map data © OpenStreetMap contributors. Attribution stays visible on the map.
+
+## Validation of this update
+
+JavaScript syntax and simulated GPS/motion tests passed: permission invocation on Start, Android no-prompt path, denied-motion GPS continuity, walking cycles versus stationary noise, Stop/Reset, and delayed permission after Stop. Physical sensor accuracy and layout still require real-device verification.

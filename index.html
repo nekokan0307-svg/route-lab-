@@ -9,15 +9,18 @@
 <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="./styles.css">
 <script defer src="./vendor/leaflet/leaflet.js"></script>
+<script defer src="./steps.js"></script>
 <script defer src="./app.js"></script>
 </head>
 <body>
 <main id="map" aria-label="Interactive OpenStreetMap map"></main>
 <header class="brand"><span class="logo" aria-hidden="true">↗</span><div><h1>Route Lab</h1><p>YOUR WORLD, IN MOTION</p></div><span class="tag">LIVE GPS</span></header>
 <button id="recenter" class="recenter" disabled aria-label="Recenter map and follow your location" title="Recenter & follow">◎</button>
-<section class="panel" aria-label="GPS tracking controls">
+<section class="panel" aria-label="GPS and step tracking controls">
 <div class="state"><span id="dot" class="dot"></span><strong id="status" role="status" aria-live="polite">Ready to explore</strong><span id="mode">GPS OFF</span></div>
 <p id="message">Tap Start, then allow location access to find yourself on the map.</p>
+<div class="step-card"><div><span class="step-label">STEPS</span><output id="steps" aria-label="Estimated step count">0</output></div><button id="reset-steps" class="reset-steps" aria-label="Reset step count">Reset</button></div>
+<p id="motion-status" class="motion-status" role="status">Tap Start to enable motion · Estimated steps</p>
 <dl class="metrics"><div><dt>LATITUDE</dt><dd id="latitude">—</dd></div><div><dt>LONGITUDE</dt><dd id="longitude">—</dd></div><div><dt>ACCURACY</dt><dd><span id="accuracy">—</span> <small>m</small></dd></div></dl>
 <div class="actions"><button id="start">Start <span aria-hidden="true">↗</span></button><button id="stop" disabled>Stop</button></div>
 <p class="foot" id="updated">Location stays in this tab · Keep the app open while tracking.</p>

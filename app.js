@@ -27,6 +27,57 @@
   });
   let watchId = null, session = 0, active = false, following = true;
   let marker, accuracyCircle, lastPosition, lastTime = 0, firstFix = true;
+  let stepCount = 0, motionEnabled = false, motionTimer = null, lastMotionTime = 0;
+  const detector = new window.StepDetector();
+  const motionStatus = text => { el('motion-status').textContent = text; };
+  function stopMotion() {
+    window.removeEventListener('devicemotion', onMotion);
+    clearTimeout(motionTimer); motionTimer = null;
+    motionEnabled = false; detector.reset();
+    motionStatus('Motion stopped · Step total kept until Reset or reload');
+  }
+  function onMotion(event) {
+    if (!active || !motionEnabled || document.hidden) return;
+    const valid = v => v && [v.x, v.y, v.z].every(Number.isFinite);
+    const vector = valid(event.accelerationIncludingGravity) ? event.accelerationIncludingGravity : event.acceleration;
+    if (!valid(vector)) return;
+    const now = performance.now();
+    lastMotionTime = now;
+    clearTimeout(motionTimer);
+    motionStatus('Motion active · Walk with your phone · Estimated steps');
+    if (detector.sample(vector, now)) {
+      stepCount++;
+      el('steps').textContent = stepCount.toLocaleString();
+    }
+  }
+  function beginMotion(token) {
+    // Called synchronously by the Start click: never await GPS before this request.
+    const Motion = window.DeviceMotionEvent;
+    if (!Motion) { motionStatus('Motion unavailable on this device · GPS still works'); return; }
+    motionStatus('Allow motion access if asked…');
+    let permission;
+    try {
+      permission = typeof Motion.requestPermission === 'function' ? Motion.requestPermission() : Promise.resolve('granted');
+    } catch (error) { permission = Promise.reject(error); }
+    Promise.resolve(permission).then(result => {
+      if (!active || token !== session) return;
+      if (result !== 'granted') {
+        motionStatus('Motion denied · GPS still works. Allow motion in browser settings, then Stop / Start.');
+        return;
+      }
+      detector.reset(); lastMotionTime = 0; motionEnabled = true;
+      window.addEventListener('devicemotion', onMotion, {passive:true});
+      motionStatus('Waiting for accelerometer… Walk with your phone.');
+      motionTimer = setTimeout(() => {
+        if (active && token === session && !lastMotionTime) motionStatus('No motion data · Check browser motion permissions and use a supported phone. GPS still works.');
+      }, 8000);
+    }).catch(() => {
+      if (active && token === session) motionStatus('Motion permission failed · GPS still works. Stop / Start to retry in Safari or Chrome.');
+    });
+  }
+  el('reset-steps').addEventListener('click', () => {
+    stepCount = 0; el('steps').textContent = '0'; detector.reset();
+  });
   const icon = L.divIcon({className:'gps-pin', html:'<span></span>', iconSize:[20,20], iconAnchor:[10,10]});
   function buttons() {
     start.disabled = active;
@@ -37,6 +88,7 @@
   function halt() {
     active = false;
     session++;
+    stopMotion();
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     watchId = null;
     buttons();
@@ -73,6 +125,7 @@
     active = true; following = true; firstFix = true; lastTime = 0;
     const token = ++session;
     buttons();
+    beginMotion(token);
     status('Finding your location…', 'Allow location access when asked. For a better fix, move near a window or outdoors.');
     try {
       watchId = navigator.geolocation.watchPosition(
@@ -113,7 +166,11 @@
       status('Waiting for a fresh GPS fix', 'The displayed position is the last known fix. Keep the app visible and check Location Services.');
     }
   }, 5000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) map.invalidateSize(); });
+  document.addEventListener('visibilitychange', () => {
+    detector.reset();
+    if (!document.hidden) map.invalidateSize();
+    if (motionEnabled) motionStatus(document.hidden ? 'Motion paused while app is hidden' : 'Motion resumed · Walk with your phone · Estimated steps');
+  });
   window.addEventListener('resize', () => map.invalidateSize());
   window.addEventListener('pagehide', halt);
 })();
